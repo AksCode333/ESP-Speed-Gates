@@ -1,17 +1,24 @@
 #include <ESP8266WiFi.h>
 #include <espnow.h>
 
+//define sound velocity in cm/uS
+#define SOUND_VELOCITY 0.034
+#define CM_TO_INCH 0.393701
+
+long duration;
+float distanceCm;
+float distanceInch;
+const int trigPin = 12;
+const int echoPin = 14;
+
 // REPLACE WITH RECEIVER MAC Address
 uint8_t broadcastAddress[] = { 0xD8, 0xBF, 0xC0, 0xEE, 0xD6, 0x5C };
 
 // Structure example to send data
 // Must match the receiver structure
 typedef struct struct_message {
-  char a[32];
   int b;
-  float c;
-  String d;
-  bool e;
+  int c;
 } struct_message;
 
 int x = 0;
@@ -35,7 +42,8 @@ void OnDataSent(uint8_t *mac_addr, uint8_t sendStatus) {
 void setup() {
   // Init Serial Monitor
   Serial.begin(115200);
- 
+  pinMode(trigPin, OUTPUT); // Sets the trigPin as an Output
+  pinMode(echoPin, INPUT); // Sets the echoPin as an Input
   // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
 
@@ -48,25 +56,35 @@ void setup() {
   // Once ESPNow is successfully Init, we will register for Send CB to
   // get the status of Trasnmitted packet
   esp_now_set_self_role(ESP_NOW_ROLE_CONTROLLER);
-  esp_now_register_send_cb(OnDataSent);
+  // esp_now_register_send_cb(OnDataSent);
   
   // Register peer
   esp_now_add_peer(broadcastAddress, ESP_NOW_ROLE_SLAVE, 1, NULL, 0);
 }
  
 void loop() {
-  if ((millis() - lastTime) > timerDelay) {
-    x+=1;
-    // Set values to send
-    // strcpy(myData.a, "THIS IS A CHAR");
-    myData.b = x;
-    // myData.c = 1.2;
-    // myData.d = "Hello";
-    // myData.e = false;
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  // Sets the trigPin on HIGH state for 10 micro seconds
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  
+  // Reads the echoPin, returns the sound wave travel time in microseconds
+  duration = pulseIn(echoPin, HIGH);
+  // Calculate the distance
+  distanceCm = duration * SOUND_VELOCITY/2;
 
-    // Send message via ESP-NOW
+  
+  // Prints the distance on the Serial Monitor
+  // Serial.print("Distance (cm): ");
+  // Serial.println(distanceCm);
+
+  delay(20);
+  if (distanceCm < 100) {
+    myData.b = distanceCm;
+    myData.c = 1; // THIS IS THE ID OF THE THIng 1 = end 0 = start
     esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));
-
-    lastTime = millis();
   }
+  
 }
